@@ -1,9 +1,10 @@
 import bodyParser from "body-parser";
+import { createServer } from "http";
+import { Server } from "socket.io";
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import { createServer } from "http";
-import { Server } from "socket.io";
+
 const httpServer = createServer();
 const socket = new Server(httpServer, {});
 socket.on("connection", (socket) => {

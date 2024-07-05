@@ -1,10 +1,11 @@
 import fs from "fs";
 import path from "path";
-import { Request, Response } from "express";
-import * as turf from "@turf/turf";
 import axios from "axios";
-import { ISSMessage, GeoJson } from "../types/country";
 import proj4 from "proj4";
+import * as turf from "@turf/turf";
+import { Request, Response } from "express";
+
+import { ISSMessage, GeoJson } from "../types/country";
 
 const geoJsonPath = path.join(__dirname, "../data/countries.geojson");
 const geoJson: GeoJson = JSON.parse(fs.readFileSync(geoJsonPath, "utf8"));
