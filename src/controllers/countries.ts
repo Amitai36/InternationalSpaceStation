@@ -1,11 +1,9 @@
 import fs from "fs";
 import path from "path";
-import axios from "axios";
-import proj4 from "proj4";
-import * as turf from "@turf/turf";
 import { Request, Response } from "express";
 
-import { ISSMessage, GeoJson } from "../types/country";
+import { GeoJson } from "../types/country";
+import { getCountry, positionISS, Wgs84ToUtm } from "../helpFunc/country";
 
 const geoJsonPath = path.join(__dirname, "../data/countries.geojson");
 const geoJson: GeoJson = JSON.parse(fs.readFileSync(geoJsonPath, "utf8"));
@@ -17,25 +15,9 @@ export const getCountries = async (_req: Request, res: Response) => {
     res.status(500).send({ error }).end();
   }
 };
-
 export const getCountryISS = async (_req: Request, res: Response) => {
   try {
-    const featureCollection = turf.featureCollection(geoJson.features);
-    const response = await axios.get<ISSMessage>(
-      "http://api.open-notify.org/iss-now.json"
-    );
-    const y = response.data.iss_position.latitude;
-    const x = response.data.iss_position.longitude;
-    const point = turf.point([+x, +y]);
-    console.log(point);
-    let country = "Ocean";
-    for (const feature of featureCollection.features) {
-      if (turf.booleanPointInPolygon(point, feature)) {
-        console.log("name");
-        country = feature.properties.name;
-        break;
-      }
-    }
+    const country = await getCountry();
     res.status(200).send(country).end();
   } catch (error) {
     res.status(500).send({ error }).end();
@@ -43,31 +25,17 @@ export const getCountryISS = async (_req: Request, res: Response) => {
 };
 export const getISSLocation = async (_req: Request, res: Response) => {
   try {
-    const response = await axios.get<ISSMessage>(
-      "http://api.open-notify.org/iss-now.json"
-    );
-    const y = +response.data.iss_position.latitude;
-    const x = +response.data.iss_position.longitude;
+    const { x, y } = await positionISS();
     const zone = Math.floor((x + 180) / 6) + 1;
-    const { latitude, longitude } = Wgs84ToUtm(x, y, zone);
-    console.log();
+    const bandLetters = "CDEFGHJKLMNPQRSTUVWX";
+    const index = Math.floor((y + 80) / 8);
+    const { latitude, longitude } = Wgs84ToUtm(
+      x,
+      y,
+      `${zone}${bandLetters.charAt(index)}`
+    );
     res.status(200).send({ location: { latitude, longitude } }).end();
   } catch (error) {
     res.status(500).send({ error }).end();
   }
 };
-
-function Wgs84ToUtm(easting: number, northing: number, zone: number) {
-  const utmProjection = `+proj=utm +zone=${zone} +datum=WGS84 +no_defs`;
-  const wgs84Projection = "+proj=longlat +datum=WGS84 +no_defs";
-
-  const geoCrs = "EPSG:4326";
-  const utmCrs = "EPSG:326" + (Math.floor((easting + 180) / 6) % 60) + 1;
-  proj4.defs(utmCrs, utmProjection);
-  proj4.defs(geoCrs, wgs84Projection);
-  const wgs84Coords = proj4(geoCrs, utmCrs, [easting, northing]);
-  return {
-    longitude: wgs84Coords[0],
-    latitude: wgs84Coords[1],
-  };
-}
